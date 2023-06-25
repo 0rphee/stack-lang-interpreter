@@ -1,12 +1,12 @@
 module Main (main) where
 
-import Lib 
+import Machine
 
 putLn :: IO ()
 putLn = putStrLn ""
 
 -- Example code for the 'Machine'.
-code :: [Instruction]
+code :: [ByteCodeInstruction]
 code = [ Const 2,
          Const 3,
          Const 4,
@@ -17,5 +17,5 @@ code = [ Const 2,
 main :: IO ()
 main = do
   putLn
-  putStrLn $ showResult $ execute code
+  putStrLn . showResult =<< runMachine code
   putLn

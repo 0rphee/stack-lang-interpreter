@@ -13,6 +13,7 @@ module Machine
   , Machine
   , MachineOperation (..)
   , StackValue
+  , runInterpreter
   , runMachine
   , showResult
   ) where
@@ -56,7 +57,7 @@ data Machine
             , mMemory :: !VMemory
             }
 
-type InterpM a = StateT Machine (ExceptT Error IO) a
+type InterpM a = StateT Machine (ExceptT (Error, Machine) IO) a
 
 runMachine :: [ByteCodeInstruction] -> ExceptT (Error, Machine) IO Machine
 runMachine instructionsToExecute = do
@@ -69,9 +70,11 @@ runMachine instructionsToExecute = do
           executeInstruction x machine >>= runMachine' xs
 
 
-
-runInterpreter :: InterpM a -> Machine -> IO (Either Error a)
-runInterpreter action env = runExceptT (evalStateT action env)
+runInterpreter :: [ByteCodeInstruction] -> IO (Either (Error, Machine) Machine)
+runInterpreter instructionsToExecute= do
+  mMemory <- newPinnedByteArray 65536
+  let machine = Machine {mStack=[], mMemory}
+  runExceptT (execStateT (eval instructionsToExecute) machine)
 
 
 eval :: [ByteCodeInstruction] -> InterpM ()
@@ -120,7 +123,8 @@ pops = do
   stack <- gets mStack
   case stack of
      [] -> do
-       lift $ throwE $ OperationError "ERROR: tried to pop more values than possible"
+       st <- get
+       lift $ throwE (OperationError "ERROR: tried to pop more values than possible", st)
      (x:xs) -> do
        modify' (\m@(Machine{})->m{mStack=xs})
        pure x
@@ -205,3 +209,4 @@ showResult (Left (err, Machine {mStack})) = "Stack Machine stopped:\t\t\t" ++ sh
                                                   ++ show mStack
 showResult (Right (Machine {mStack})) = "Final state of Stack Machine:\t"
                                              ++ show mStack
+

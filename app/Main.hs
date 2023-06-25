@@ -30,6 +30,4 @@ main = do
   putStrLn $ showSize (1 :: Float32) "Float32"
   putStrLn $ showSize (1 :: Float64) "Float64"
   runInterpreter code >>= (putStrLn . showResult)
-  -- res <- (runExceptT . runMachine) code
-  -- putStrLn . showResult $ res
   putLn

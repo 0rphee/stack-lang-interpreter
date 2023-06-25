@@ -4,7 +4,16 @@
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 module Machine
-  ( runMachine
+  ( ByteCodeInstruction (..)
+  , Error
+  , Float32
+  , Float64
+  , Int32
+  , Int64
+  , Machine
+  , MachineOperation (..)
+  , StackValue
+  , runMachine
   , showResult
   ) where
 import Control.Monad.Primitive          ( RealWorld )
@@ -38,12 +47,16 @@ newtype StackValue
 data MachineOperation
   = Mult
   | Add
+  | Load
+  | Store
   deriving (Eq, Show)
 
 data Machine
   = Machine { mStack  :: ![StackValue]
             , mMemory :: !VMemory
             }
+
+type InterpM a = StateT Machine (ExceptT Error IO) a
 
 runMachine :: [ByteCodeInstruction] -> ExceptT (Error, Machine) IO Machine
 runMachine instructionsToExecute = do
@@ -54,6 +67,71 @@ runMachine instructionsToExecute = do
         runMachine' [] machine  = pure machine
         runMachine' (x:xs) machine =
           executeInstruction x machine >>= runMachine' xs
+
+
+
+runInterpreter :: InterpM a -> Machine -> IO (Either Error a)
+runInterpreter action env = runExceptT (evalStateT action env)
+
+
+eval :: [ByteCodeInstruction] -> InterpM ()
+eval [] = pure ()
+eval (Const val:xs) = do
+  pushs (ConstInt val)
+  eval xs
+eval (Op op:xs) = do
+  case op of
+    Mult  -> mults
+    Add   -> adds
+    Load  -> loads
+    Store -> stores
+  eval xs
+
+
+loads :: InterpM ()
+loads = do
+  (ConstInt addr) <- pops
+  mMemory <- gets mMemory
+  (res::Int) <- lift $ readByteArray mMemory addr
+  pushs (ConstInt res)
+
+stores :: InterpM ()
+stores = do
+  (ConstInt valToStore) <- pops
+  (ConstInt addrToStore) <- pops
+  mMemory <- gets mMemory
+  lift $ writeByteArray mMemory addrToStore valToStore
+
+
+adds :: InterpM ()
+adds = binOp (+)
+
+mults :: InterpM ()
+mults = binOp (*)
+
+binOp :: (Int -> Int -> Int) -> InterpM ()
+binOp f = do
+  (ConstInt val1) <- pops
+  (ConstInt val2) <- pops
+  pushs $ ConstInt (f val1 val2)
+
+pops :: InterpM StackValue
+pops = do
+  stack <- gets mStack
+  case stack of
+     [] -> do
+       lift $ throwE $ OperationError "ERROR: tried to pop more values than possible"
+     (x:xs) -> do
+       modify' (\m@(Machine{})->m{mStack=xs})
+       pure x
+
+pushs :: StackValue -> InterpM ()
+pushs val = modify' primPush
+  where primPush :: Machine -> Machine
+        primPush m@(Machine {..}) = m{mStack = val:mStack}
+
+
+
 
 executeInstruction :: ByteCodeInstruction -> Machine
                    -> ExceptT (Error, Machine) IO Machine

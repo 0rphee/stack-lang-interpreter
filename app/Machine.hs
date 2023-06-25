@@ -53,6 +53,16 @@ data Machine
 type InterpM a = StateT Machine (ExceptT (Error, Machine) IO) a
 
 
+showResult :: Either (Error, Machine) Machine -> String
+showResult (Left (err, Machine {mStack})) =
+  "Stack Machine stopped:\t\t\t" ++ show err
+  ++ "\nWith final state of Stack Machine:\t"
+  ++ show mStack
+showResult (Right (Machine {mStack})) =
+  "Final state of Stack Machine:\t"
+   ++ show mStack
+
+
 runInterpreter :: [ByteCodeInstruction] -> IO (Either (Error, Machine) Machine)
 runInterpreter instructionsToExecute= do
   mMemory <- newPinnedByteArray 65536
@@ -116,11 +126,3 @@ pushs :: StackValue -> InterpM ()
 pushs val = modify' primPush
   where primPush :: Machine -> Machine
         primPush m@(Machine {..}) = m{mStack = val:mStack}
-
-showResult :: Either (Error, Machine) Machine -> String
-showResult (Left (err, Machine {mStack})) = "Stack Machine stopped:\t\t\t" ++ show err
-                                                  ++ "\nWith final state of Stack Machine:\t"
-                                                  ++ show mStack
-showResult (Right (Machine {mStack})) = "Final state of Stack Machine:\t"
-                                             ++ show mStack
-

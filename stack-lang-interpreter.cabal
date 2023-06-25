@@ -34,6 +34,7 @@ executable stack-lang-interpreter-exe
   build-depends:
       base >=4.7 && <5
     , primitive
+    , transformers
   default-language: Haskell2010
 
 test-suite stack-lang-interpreter-test

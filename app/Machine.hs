@@ -7,10 +7,20 @@ module Machine
   ( runMachine
   , showResult
   ) where
-import Control.Monad.Primitive  ( RealWorld )
+import Control.Monad.Primitive          ( RealWorld )
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Except
+import Control.Monad.Trans.State.Strict
 
-import Data.Primitive           ( MutableByteArray )
+import Data.Int
+import Data.Primitive                   ( MutableByteArray )
 import Data.Primitive.ByteArray
+
+
+type Float32 = Float
+type Float64 = Double
+
+type VMemory = (MutableByteArray RealWorld)
 
 newtype Error
   = OperationError String
@@ -32,33 +42,41 @@ data MachineOperation
 
 data Machine
   = Machine { mStack  :: ![StackValue]
-            , mMemory :: !(MutableByteArray RealWorld)
+            , mMemory :: !VMemory
             }
 
-runMachine :: [ByteCodeInstruction] -> IO (Either (Error, Machine) Machine)
+runMachine :: [ByteCodeInstruction] -> ExceptT (Error, Machine) IO Machine
 runMachine instructionsToExecute = do
-  mMemory <- newPinnedByteArray 65536
-  pure $ runMachine' (Right (Machine {mStack = [],mMemory})) instructionsToExecute
-  where runMachine' :: Either (Error, Machine) Machine
-                 -> [ByteCodeInstruction]
-                 -> Either (Error, Machine) Machine
-        runMachine' eithMachine [] = eithMachine
-        runMachine' (Left err) _ = Left err
-        runMachine' eithMachine (x:xs) =
-          runMachine' (eithMachine >>= executeInstruction x) xs
+  mMemory <- lift $ newPinnedByteArray 65536
+  runMachine' instructionsToExecute $ Machine {mStack = [],mMemory}
+  where runMachine' :: [ByteCodeInstruction]
+                     -> Machine ->  ExceptT (Error, Machine) IO Machine
+        runMachine' [] machine  = pure machine
+        runMachine' (x:xs) machine =
+          executeInstruction x machine >>= runMachine' xs
 
 executeInstruction :: ByteCodeInstruction -> Machine
-                   -> Either (Error, Machine) Machine
+                   -> ExceptT (Error, Machine) IO Machine
 executeInstruction instr machine =
   case instr of
-    Const int -> Right $ push (ConstInt int) machine
+    Const int -> pure $ push (ConstInt int) machine
     Op operation ->
       case operation of
-        Mult -> add machine
-        Add  -> mult machine
+        Mult -> except $ add machine
+        Add  -> except $ mult machine
+        Load -> load machine
 
 push :: StackValue -> Machine -> Machine
 push val m@(Machine {..}) = m { mStack = val:mStack }
+
+pop :: Machine -> Either (Error, Machine) (StackValue, Machine)
+pop m@(Machine {..}) =
+  case take 1 mStack of
+    [] -> Left (OperationError "ERROR: tried to pop more values than possible"
+                  , m)
+    (x:xs) -> Right (x, m{mStack = xs})
+
+
 
 popN :: Int -> Machine -> Either (Error, Machine) ([StackValue], Machine)
 popN int m@(Machine {..}) =
@@ -86,6 +104,21 @@ add = binaryOp (\(ConstInt a) (ConstInt b) -> ConstInt (a * b))
 
 mult :: Machine -> Either (Error, Machine) Machine
 mult = binaryOp (\(ConstInt a) (ConstInt b) -> ConstInt (a + b))
+
+-- | Load from memory to the top of the stack
+load :: Machine -> ExceptT (Error, Machine) IO Machine
+load m@(Machine{..}) = do
+  (ConstInt address, m') <- except $ pop m
+  (res :: Int) <- lift $ readByteArray mMemory address
+  pure $ push (ConstInt res) m'
+
+store :: Machine -> ExceptT (Error, Machine) IO Machine
+store m = do
+  (ConstInt var, m') <- except $ pop m
+  (ConstInt address, m''@(Machine{..})) <- except $ pop m'
+  lift $ writeByteArray mMemory address var
+  pure m''
+
 
 
 showResult :: Either (Error, Machine) Machine -> String

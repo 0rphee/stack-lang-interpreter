@@ -29,6 +29,7 @@ main = do
   putStrLn $ showSize (1 :: Int64) "Int64"
   putStrLn $ showSize (1 :: Float32) "Float32"
   putStrLn $ showSize (1 :: Float64) "Float64"
-  res <- (runExceptT . runMachine) code
-  putStrLn . showResult $ res
+  runInterpreter code >>= (putStrLn . showResult)
+  -- res <- (runExceptT . runMachine) code
+  -- putStrLn . showResult $ res
   putLn

@@ -1,8 +1,3 @@
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE NamedFieldPuns        #-}
-{-# LANGUAGE NoOverloadedRecordDot #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 module Machine
   ( ByteCodeInstruction (..)
   , Error

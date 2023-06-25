@@ -30,12 +30,14 @@ executable stack-lang-interpreter-exe
       Paths_stack_lang_interpreter
   hs-source-dirs:
       app
+  default-extensions:
+      RecordWildCards
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -haddock -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
     , primitive
     , transformers
-  default-language: Haskell2010
+  default-language: GHC2021
 
 test-suite stack-lang-interpreter-test
   type: exitcode-stdio-1.0
@@ -47,7 +49,9 @@ test-suite stack-lang-interpreter-test
   hs-source-dirs:
       test
       app
+  default-extensions:
+      RecordWildCards
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -haddock -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
-  default-language: Haskell2010
+  default-language: GHC2021

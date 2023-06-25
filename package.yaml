@@ -34,9 +34,6 @@ ghc-options:
 - -Wredundant-constraints
 - -haddock
 
-library:
-  source-dirs: src
-
 executables:
   stack-lang-interpreter-exe:
     main:                Main.hs
@@ -46,16 +43,15 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - stack-lang-interpreter
+    - primitive
 
 tests:
   stack-lang-interpreter-test:
     main:                Spec.hs
-    source-dirs:         test
+    source-dirs:         
+    - test
+    - app
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-    dependencies:
-    - stack-lang-interpreter
-.

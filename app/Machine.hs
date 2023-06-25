@@ -10,17 +10,18 @@ module Machine
   , StackValue
   , runInterpreter
   , showResult
-  ) where
-import Control.Monad.Primitive          ( RealWorld )
+  )
+where
+
+import Control.Monad.Primitive (RealWorld)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
-
 import Data.Int
 import Data.Primitive.ByteArray
 
-
 type Float32 = Float
+
 type Float64 = Double
 
 type VMemory = (MutableByteArray RealWorld)
@@ -45,50 +46,47 @@ data MachineOperation
   | Store
   deriving (Eq, Show)
 
-data Machine
-  = Machine { mStack  :: ![StackValue]
-            , mMemory :: !VMemory
-            }
+data Machine = Machine
+  { mStack :: ![StackValue]
+  , mMemory :: !VMemory
+  }
 
 type InterpM a = StateT Machine (ExceptT (Error, Machine) IO) a
 
-
 showResult :: Either (Error, Machine) Machine -> String
 showResult (Left (err, Machine {mStack})) =
-  "Stack Machine stopped:\t\t\t" ++ show err
-  ++ "\nWith final state of Stack Machine:\t"
-  ++ show mStack
+  "Stack Machine stopped:\t\t\t"
+    ++ show err
+    ++ "\nWith final state of Stack Machine:\t"
+    ++ show mStack
 showResult (Right (Machine {mStack})) =
   "Final state of Stack Machine:\t"
-   ++ show mStack
-
+    ++ show mStack
 
 runInterpreter :: [ByteCodeInstruction] -> IO (Either (Error, Machine) Machine)
-runInterpreter instructionsToExecute= do
+runInterpreter instructionsToExecute = do
   mMemory <- newPinnedByteArray 65536
-  let machine = Machine {mStack=[], mMemory}
+  let machine = Machine {mStack = [], mMemory}
   runExceptT (execStateT (eval instructionsToExecute) machine)
-
 
 eval :: [ByteCodeInstruction] -> InterpM ()
 eval [] = pure ()
-eval (Const val:xs) = do
+eval (Const val : xs) = do
   pushs (ConstInt val)
   eval xs
-eval (Op op:xs) = do
+eval (Op op : xs) = do
   case op of
-    Mult  -> mults
-    Add   -> adds
-    Load  -> loads
+    Mult -> mults
+    Add -> adds
+    Load -> loads
     Store -> stores
   eval xs
-
 
 loads :: InterpM ()
 loads = do
   (ConstInt addr) <- pops
   mMemory <- gets mMemory
-  (res::Int) <- lift $ readByteArray mMemory addr
+  (res :: Int) <- lift $ readByteArray mMemory addr
   pushs (ConstInt res)
 
 stores :: InterpM ()
@@ -97,7 +95,6 @@ stores = do
   (ConstInt addrToStore) <- pops
   mMemory <- gets mMemory
   lift $ writeByteArray mMemory addrToStore valToStore
-
 
 adds :: InterpM ()
 adds = binOp (+)
@@ -115,14 +112,15 @@ pops :: InterpM StackValue
 pops = do
   stack <- gets mStack
   case stack of
-     [] -> do
-       st <- get
-       lift $ throwE (OperationError "ERROR: tried to pop more values than possible", st)
-     (x:xs) -> do
-       modify' (\m@(Machine{})->m{mStack=xs})
-       pure x
+    [] -> do
+      st <- get
+      lift $ throwE (OperationError "ERROR: tried to pop more values than possible", st)
+    (x : xs) -> do
+      modify' (\m@(Machine {}) -> m {mStack = xs})
+      pure x
 
 pushs :: StackValue -> InterpM ()
 pushs val = modify' primPush
-  where primPush :: Machine -> Machine
-        primPush m@(Machine {..}) = m{mStack = val:mStack}
+  where
+    primPush :: Machine -> Machine
+    primPush m@(Machine {..}) = m {mStack = val : mStack}

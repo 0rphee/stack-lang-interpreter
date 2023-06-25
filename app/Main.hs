@@ -1,7 +1,5 @@
 module Main (main) where
 
-import Control.Monad.Trans.Except ( runExceptT )
-
 import Data.Int
 import Data.Primitive.Types
 

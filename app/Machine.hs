@@ -10,6 +10,7 @@ module Machine
   , StackValue
   , runInterpreter
   , showResult
+  , showMemAddress
   )
 where
 
@@ -19,6 +20,7 @@ import Control.Monad.Trans.Except
 import Control.Monad.Trans.State.Strict
 import Data.Int
 import Data.Primitive.ByteArray
+import Debug.Trace (trace, traceShowId)
 
 type Float32 = Float
 
@@ -53,15 +55,30 @@ data Machine = Machine
 
 type InterpM a = StateT Machine (ExceptT (Error, Machine) IO) a
 
-showResult :: Either (Error, Machine) Machine -> String
-showResult (Left (err, Machine {mStack})) =
-  "Stack Machine stopped:\t\t\t"
-    ++ show err
-    ++ "\nWith final state of Stack Machine:\t"
-    ++ show mStack
-showResult (Right (Machine {mStack})) =
-  "Final state of Stack Machine:\t"
-    ++ show mStack
+showResult :: Int -> Either (Error, Machine) Machine -> IO String
+showResult addr (Left (err, Machine {..})) = do
+  addrStr <- showMemAddress addr mMemory
+  pure
+    ( "Stack Machine stopped:\t\t\t"
+        ++ show err
+        ++ "\nWith final state of Stack Machine:\t"
+        ++ show mStack
+        ++ "\n"
+        ++ addrStr
+    )
+showResult addr (Right (Machine {..})) = do
+  addrStr <- showMemAddress addr mMemory
+  pure
+    ( "Final state of Stack Machine:\t"
+        ++ show mStack
+        ++ "\n"
+        ++ addrStr
+    )
+
+showMemAddress :: Int -> VMemory -> IO String
+showMemAddress addr mMemory = do
+  (v :: Double) <- readByteArray mMemory addr
+  pure $ "The value at address " ++ show addr ++ " is: " ++ show v
 
 runInterpreter :: [ByteCodeInstruction] -> IO (Either (Error, Machine) Machine)
 runInterpreter instructionsToExecute = do
